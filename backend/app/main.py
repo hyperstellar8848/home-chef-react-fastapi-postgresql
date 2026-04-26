@@ -7,6 +7,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.crud import user as user_crud
 from jose import JWTError, jwt
 from app.core.security import SECRET_KEY, ALGORITHM
+from app.crud import recipe as recipe_crud
+from app.schemas import recipe as recipe_schema
 
 # This command creates all the tables in the Postgres database automatically
 all_models.Base.metadata.create_all(bind=engine)
@@ -52,3 +54,21 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         
     user = db.query(all_models.User).filter(all_models.User.email == email).first()
     return user
+
+# CREATE RECIPE
+@app.post("/recipes/", response_model=recipe_schema.Recipe)
+def create_recipe(recipe: recipe_schema.RecipeCreate, db: Session = Depends(get_db), current_user: all_models.User = Depends(get_current_user)):
+    return recipe_crud.create_recipe(db=db, recipe=recipe, user_id=current_user.id)
+
+# GET ALL RECIPES
+@app.get("/recipes/", response_model=list[recipe_schema.Recipe])
+def read_recipes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return recipe_crud.get_all_recipes(db, skip=skip, limit=limit)
+
+# DELETE RECIPE
+@app.delete("/recipes/{recipe_id}")
+def delete_recipe(recipe_id: int, db: Session = Depends(get_db), current_user: all_models.User = Depends(get_current_user)):
+    success = recipe_crud.delete_recipe(db, recipe_id=recipe_id, user_id=current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Recipe not found or unauthorized")
+    return {"message": "Recipe deleted successfully"}
