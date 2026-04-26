@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
 const Home = () => (
   <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -10,7 +12,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<h1 className="text-center mt-10 text-3xl">صفحه اصلی (بزودی لیست غذاها)</h1>} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
       </Routes>
     </Router>
   );
