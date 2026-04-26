@@ -5,6 +5,8 @@ from app.models import all_models
 from app.schemas import user as user_schema
 from fastapi.security import OAuth2PasswordRequestForm
 from app.crud import user as user_crud
+from jose import JWTError, jwt
+from app.core.security import SECRET_KEY, ALGORITHM
 
 # This command creates all the tables in the Postgres database automatically
 all_models.Base.metadata.create_all(bind=engine)
@@ -38,3 +40,15 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     # 3. Create and return the token
     access_token = security.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+        
+    user = db.query(all_models.User).filter(all_models.User.email == email).first()
+    return user
