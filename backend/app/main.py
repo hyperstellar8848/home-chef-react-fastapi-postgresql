@@ -72,3 +72,10 @@ def delete_recipe(recipe_id: int, db: Session = Depends(get_db), current_user: a
     if not success:
         raise HTTPException(status_code=404, detail="Recipe not found or unauthorized")
     return {"message": "Recipe deleted successfully"}
+
+@app.put("/recipes/{recipe_id}", response_model=recipe_schema.Recipe)
+def update_recipe(recipe_id: int, recipe: recipe_schema.RecipeCreate, db: Session = Depends(get_db), current_user: all_models.User = Depends(get_current_user)):
+    updated_recipe = recipe_crud.update_recipe(db, recipe_id=recipe_id, recipe_update=recipe, user_id=current_user.id)
+    if not updated_recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found or unauthorized")
+    return updated_recipe
