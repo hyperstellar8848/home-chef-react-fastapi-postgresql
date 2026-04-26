@@ -6,40 +6,72 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
-      // fastapi uses formdata for login
       const formData = new FormData();
       formData.append('username', email);
       formData.append('password', password);
 
       const response = await api.post('/token', formData);
-      localStorage.setItem('token', response.data.access_token); // stores token
-      navigate('/'); // gets you to main page
+      localStorage.setItem('token', response.data.access_token);
+      navigate('/'); 
     } catch (err) {
-      setError('ایمیل یا رمز عبور اشتباه است');
+      setError(err.response?.data?.detail || "ورود ناموفق بود. دوباره تلاش کنید.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <form onSubmit={handleLogin} className="p-8 bg-white shadow-lg rounded-xl w-96">
-        <h2 className="text-2xl font-bold mb-6 text-orange-600 text-center">ورود به هوم‌شف</h2>
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-        <input 
-          type="email" placeholder="ایمیل" className="w-full p-3 mb-4 border rounded-lg focus:outline-orange-500"
-          onChange={(e) => setEmail(e.target.value)} required 
-        />
-        <input 
-          type="password" placeholder="رمز عبور" className="w-full p-3 mb-6 border rounded-lg focus:outline-orange-500"
-          onChange={(e) => setPassword(e.target.value)} required 
-        />
-        <button type="submit" className="w-full bg-orange-500 text-white p-3 rounded-lg font-bold hover:bg-orange-600 transition">
-          ورود
-        </button>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50" dir="rtl">
+      <form onSubmit={handleLogin} className="p-8 bg-white shadow-2xl rounded-3xl w-96 border border-gray-100 transform transition-all hover:scale-[1.01]">
+        <h2 className="text-3xl font-bold mb-8 text-orange-600 text-center">خوش آمدید 🍳</h2>
+
+        {error && (
+          <div className="bg-red-50 border-r-4 border-red-500 text-red-700 p-4 mb-6 rounded-xl text-sm animate-shake">
+             ⚠️ {error}
+          </div>
+        )}
+
+        <div className="space-y-5">
+          <div>
+            <label className="block text-gray-600 mb-2 mr-1 text-sm">ایمیل کاربر</label>
+            <input 
+              type="email" placeholder="example@mail.com" 
+              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-50/50 transition-all"
+              onChange={(e) => setEmail(e.target.value)} required 
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-600 mb-2 mr-1 text-sm">رمز عبور</label>
+            <input 
+              type="password" placeholder="••••••••" 
+              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-50/50 transition-all"
+              onChange={(e) => setPassword(e.target.value)} required 
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className={`w-full py-4 rounded-2xl font-bold text-white text-lg transition-all shadow-lg 
+              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 hover:shadow-orange-200 active:scale-95'}`}
+          >
+            {loading ? 'در حال ورود...' : 'ورود به حساب'}
+          </button>
+        </div>
+        
+        <p className="mt-8 text-center text-gray-500">
+          هنوز عضو نشده‌اید؟ <span onClick={() => navigate('/register')} className="text-orange-600 cursor-pointer font-bold hover:underline">ثبت‌نام کنید</span>
+        </p>
       </form>
     </div>
   );
