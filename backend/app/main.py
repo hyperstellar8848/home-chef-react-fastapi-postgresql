@@ -85,34 +85,50 @@ def add_ingredient(name: str, category: str = None, db: Session = Depends(get_db
 
 # --- RECIPES (مدیریت دستور پخت) ---
 
-# ۱. دریافت تمام دستورهای پخت (برای رفع خطای 405)
+# ۱. دریافت دستورهای پخت (فقط آن‌هایی که ادمین تایید کرده است)
 @app.get("/recipes")
-def get_all_recipes(db: Session = Depends(get_db)):
-    return db.query(all_models.Recipe).all()
+def get_approved_recipes(db: Session = Depends(get_db)):
+    # فقط دستورهایی را برمی‌گرداند که is_approved آن‌ها True باشد
+    return db.query(all_models.Recipe).filter(all_models.Recipe.is_approved == True).all()
 
-# ۲. ایجاد دستور پخت جدید
+# ۲. ایجاد دستور پخت جدید (توسط کاربر)
 @app.post("/recipes")
 async def create_recipe(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     
-    # استخراج داده‌ها و اطمینان از وجود مقادیر
+    # ساخت آبجکت جدید - دقت کن که is_approved به صورت پیش‌فرض در دیتابیس False است
     new_recipe = all_models.Recipe(
         title=data.get("title"),
-        description=data.get("description"),  # در اینجا همان لیست مواد اولیه است
+        description=data.get("description"),  # لیست مواد اولیه
         instructions=data.get("instructions"),
-        cooking_time=int(data.get("cooking_time", 0)),
+        cooking_time=int(data.get("cooking_time", 0)) if data.get("cooking_time") else 0,
         category=data.get("category", "دسته‌بندی نشده"),
+        is_approved=False,  # اجبار می‌کنیم که در ابتدا تایید نشده باشد
+        owner_id=1  # فعلاً دستی تا سیستم لاگین کامل ست شود
     )
-    
-    # اگر در مدل دیتابیس فیلد زمان پخت داری، این خط را فعال کن:
-    # new_recipe.cooking_time = data.get("cooking_time")
 
     db.add(new_recipe)
     db.commit()
     db.refresh(new_recipe)
     
-    # برگرداندن کل شیء برای اینکه فرانت‌اِند بلافاصله آن را به لیست اضافه کند
-    return new_recipe
+    # اینجا پیامی برمی‌گردانیم که کاربر بداند دستور ثبت شده ولی منتظر تایید است
+    return {"message": "دستور پخت با موفقیت ثبت شد و پس از تایید ادمین نمایش داده می‌شود.", "id": new_recipe.id}
+
+# ۳. مسیر مخصوص ادمین برای دیدن همه دستورهای منتظر تایید
+@app.get("/admin/pending-recipes")
+def get_pending_recipes(db: Session = Depends(get_db)):
+    return db.query(all_models.Recipe).filter(all_models.Recipe.is_approved == False).all()
+
+# ۴. تایید دستور پخت توسط ادمین
+@app.patch("/admin/approve-recipe/{recipe_id}")
+def approve_recipe(recipe_id: int, db: Session = Depends(get_db)):
+    recipe = db.query(all_models.Recipe).filter(all_models.Recipe.id == recipe_id).first()
+    if not recipe:
+        return {"error": "Recipe not found"}
+    
+    recipe.is_approved = True
+    db.commit()
+    return {"message": f"دستور پخت '{recipe.title}' تایید شد."}
 
 # --- SUPPORT (پیام به ادمین) ---
 
