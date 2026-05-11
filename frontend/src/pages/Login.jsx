@@ -15,15 +15,24 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('username', email);
-      formData.append('password', password);
+      // استفاده از URLSearchParams برای اطمینان از فرمت x-www-form-urlencoded
+      const params = new URLSearchParams();
+      params.append('username', email); // FastAPI به دنبال کلمه username می‌گردد
+      params.append('password', password);
 
-      const response = await api.post('/token', formData);
+      const response = await api.post('/token', params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
       localStorage.setItem('token', response.data.access_token);
-      navigate('/'); 
+      
+      // تغییر مسیر به صفحه اصلی (یا هر مسیری که هدر فارسی دارد)
+      navigate('/home'); 
     } catch (err) {
-      setError(err.response?.data?.detail || "ورود ناموفق بود. دوباره تلاش کنید.");
+      console.error(err);
+      setError(err.response?.data?.detail || "ورود ناموفق بود. ایمیل یا رمز عبور را چک کنید.");
     } finally {
       setLoading(false);
     }
@@ -35,8 +44,8 @@ const Login = () => {
         <h2 className="text-3xl font-bold mb-8 text-orange-600 text-center">خوش آمدید 🍳</h2>
 
         {error && (
-          <div className="bg-red-50 border-r-4 border-red-500 text-red-700 p-4 mb-6 rounded-xl text-sm animate-shake">
-             ⚠️ {error}
+          <div className="bg-red-50 border-r-4 border-red-500 text-red-700 p-4 mb-6 rounded-xl text-sm">
+              ⚠️ {error}
           </div>
         )}
 
@@ -44,18 +53,22 @@ const Login = () => {
           <div>
             <label className="block text-gray-600 mb-2 mr-1 text-sm">ایمیل کاربر</label>
             <input 
-              type="email" placeholder="example@mail.com" 
-              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-50/50 transition-all"
-              onChange={(e) => setEmail(e.target.value)} required 
+              type="email" 
+              placeholder="example@mail.com" 
+              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 transition-all text-left" 
+              onChange={(e) => setEmail(e.target.value)} 
+              required 
             />
           </div>
 
           <div>
             <label className="block text-gray-600 mb-2 mr-1 text-sm">رمز عبور</label>
             <input 
-              type="password" placeholder="••••••••" 
-              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-50/50 transition-all"
-              onChange={(e) => setPassword(e.target.value)} required 
+              type="password" 
+              placeholder="••••••••" 
+              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 transition-all text-left" 
+              onChange={(e) => setPassword(e.target.value)} 
+              required 
             />
           </div>
 
@@ -63,7 +76,7 @@ const Login = () => {
             type="submit" 
             disabled={loading}
             className={`w-full py-4 rounded-2xl font-bold text-white text-lg transition-all shadow-lg 
-              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 hover:shadow-orange-200 active:scale-95'}`}
+              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 active:scale-95'}`}
           >
             {loading ? 'در حال ورود...' : 'ورود به حساب'}
           </button>
