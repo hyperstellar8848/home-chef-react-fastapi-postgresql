@@ -100,6 +100,7 @@ async def create_recipe(request: Request, db: Session = Depends(get_db)):
         title=data.get("title"),
         description=data.get("description"),  # در اینجا همان لیست مواد اولیه است
         instructions=data.get("instructions"),
+        cooking_time=int(data.get("cooking_time", 0)),
         category=data.get("category", "دسته‌بندی نشده"),
     )
     
