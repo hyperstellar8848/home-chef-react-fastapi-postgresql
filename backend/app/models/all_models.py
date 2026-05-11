@@ -29,6 +29,7 @@ class Recipe(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     description = Column(String)
+    instructions = Column(Text)
     category = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
     
