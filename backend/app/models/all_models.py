@@ -31,6 +31,7 @@ class Recipe(Base):
     description = Column(String)
     instructions = Column(Text)
     cooking_time = Column(Integer)
+    is_approved = Column(Boolean, default=False)
     category = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
     
