@@ -1,14 +1,13 @@
 from pydantic import BaseModel
-from typing import Optional
 
 class RecipeBase(BaseModel):
     title: str
-    description: Optional[str] = None
+    description: str
     instructions: str
-    cooking_time: int  # in minutes
+    cooking_time: int
 
 class RecipeCreate(RecipeBase):
-    pass  # This is what we send when creating
+    pass
 
 class Recipe(RecipeBase):
     id: int
