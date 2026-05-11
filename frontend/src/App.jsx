@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Recipes from './pages/Recipes';
+import AdminPanel from './pages/AdminPanel';
 
 const Home = () => (
   <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -15,6 +16,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Recipes />} />
+        <Route path="/admin" element={<AdminPanel />} /> {/* <--- تعریف آدرس /admin */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Routes>
