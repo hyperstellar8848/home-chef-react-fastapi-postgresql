@@ -3,104 +3,85 @@ import api from '../services/api';
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState([]);
-  const [title, setTitle] = useState('');
-  const [ingredients, setIngredients] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [cookingTime, setCookingTime] = useState('');
-  const [editingId, setEditingId] = useState(null); // Track if we are editing
+  const [formData, setFormData] = useState({ title: '', ingredients: '', instructions: '', cookingTime: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // READ: Get recipes from Backend 
   const fetchRecipes = async () => {
     try {
-      const response = await api.get('/recipes/');
-      setRecipes(response.data);
-    } catch (error) {
-      console.error("Error fetching recipes:", error);
-    }
+      const res = await api.get('/recipes/');
+      setRecipes(res.data);
+    } catch (err) { console.error("Fetch error", err); }
   };
 
   useEffect(() => { fetchRecipes(); }, []);
 
-  // CREATE / UPDATE Logic
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const recipeData = {
-      title,
-      description: ingredients,
-      instructions,
-      cooking_time: parseInt(cookingTime),
-    };
-
+    setLoading(true);
+    setError('');
     try {
-      if (editingId) {
-        // UPDATE (PUT)
-        await api.put(`/recipes/${editingId}`, recipeData);
-        setEditingId(null);
-      } else {
-        // CREATE (POST)
-        await api.post('/recipes/', recipeData);
-      }
-      // Reset form and refresh list
-      setTitle(''); setIngredients(''); setInstructions(''); setCookingTime('');
+      await api.post('/recipes/', {
+        title: formData.title,
+        description: formData.ingredients, // Backend calls it 'description'
+        instructions: formData.instructions,
+        cooking_time: parseInt(formData.cookingTime)
+      });
+      setFormData({ title: '', ingredients: '', instructions: '', cookingTime: '' });
       fetchRecipes();
-    } catch (error) {
-      alert("خطا! مطمئن شوید لاگین کرده‌اید و فقط غذای خودتان را ویرایش می‌کنید.");
-    }
-  };
-
-  //  DELETE Logic
-  const handleDelete = async (id) => {
-    if (window.confirm("آیا از حذف این دستور پخت مطمئن هستید؟")) {
-      try {
-        await api.delete(`/recipes/${id}`);
-        fetchRecipes();
-      } catch (error) {
-        alert("خطا در حذف! فقط صاحب غذا می‌تواند آن را حذف کند.");
-      }
-    }
-  };
-
-  // Form for Editing 
-  const startEdit = (recipe) => {
-    setEditingId(recipe.id);
-    setTitle(recipe.title);
-    setIngredients(recipe.description);
-    setInstructions(recipe.instructions);
-    setCookingTime(recipe.cooking_time);
-    window.scrollTo(0, 0); // Scroll up to see the form
+    } catch (err) {
+      setError(err.response?.data?.detail || "خطا در ثبت غذا. لطفا وارد حساب شوید.");
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="container mx-auto p-6" dir="rtl">
-      {/* FORM */}
-      <section className="bg-white p-6 rounded-2xl shadow-md mb-10 max-w-2xl mx-auto border-t-4 border-orange-500">
-        <h2 className="text-xl font-bold mb-4">{editingId ? 'ویرایش دستور پخت' : 'ثبت دستور پخت جدید'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="text" placeholder="نام غذا" className="w-full p-3 border rounded-xl" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <input type="number" placeholder="زمان پخت (دقیقه)" className="w-full p-3 border rounded-xl" value={cookingTime} onChange={(e) => setCookingTime(e.target.value)} required />
-          <textarea placeholder="مواد لازم" className="w-full p-3 border rounded-xl h-24" value={ingredients} onChange={(e) => setIngredients(e.target.value)} required />
-          <textarea placeholder="طرز تهیه" className="w-full p-3 border rounded-xl h-32" value={instructions} onChange={(e) => setInstructions(e.target.value)} required />
-          <button type="submit" className={`w-full py-3 rounded-xl font-bold text-white transition ${editingId ? 'bg-blue-500 hover:bg-blue-600' : 'bg-orange-500 hover:bg-orange-600'}`}>
-            {editingId ? 'بروزرسانی تغییرات' : 'انتشار دستور پخت'}
-          </button>
-          {editingId && <button onClick={() => {setEditingId(null); setTitle(''); setIngredients(''); setInstructions(''); setCookingTime('');}} className="w-full text-gray-500 text-sm mt-2">انصراف از ویرایش</button>}
-        </form>
-      </section>
+    <div className="max-w-4xl mx-auto p-6" dir="rtl">
+      <div className="bg-white p-8 rounded-3xl shadow-lg mb-10 border border-gray-100">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">👩‍🍳 اشتراک‌گذاری دستور جدید</h2>
+        
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 text-sm border-r-4 border-red-500">{error}</div>}
 
-      {/* LIST */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {recipes.map((recipe) => (
-          <div key={recipe.id} className="bg-white p-6 rounded-2xl shadow-sm border hover:shadow-md transition">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold text-orange-600">{recipe.title}</h3>
-              <div className="flex gap-2">
-                <button onClick={() => startEdit(recipe)} className="text-blue-500 hover:bg-blue-50 px-2 py-1 rounded text-sm border border-blue-200">ویرایش</button>
-                <button onClick={() => handleDelete(recipe.id)} className="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-sm border border-red-200">حذف</button>
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <input 
+              type="text" placeholder="نام غذا" 
+              className="p-3 border rounded-xl focus:ring-2 focus:ring-orange-400 outline-none transition-all"
+              value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required 
+            />
+            <input 
+              type="number" placeholder="زمان (دقیقه)" 
+              className="p-3 border rounded-xl focus:ring-2 focus:ring-orange-400 outline-none transition-all"
+              value={formData.cookingTime} onChange={e => setFormData({...formData, cookingTime: e.target.value})} required 
+            />
+          </div>
+          <textarea 
+            placeholder="مواد لازم..." 
+            className="w-full p-3 border rounded-xl h-24 outline-none focus:ring-2 focus:ring-orange-400"
+            value={formData.ingredients} onChange={e => setFormData({...formData, ingredients: e.target.value})} required 
+          />
+          <textarea 
+            placeholder="طرز تهیه..." 
+            className="w-full p-3 border rounded-xl h-32 outline-none focus:ring-2 focus:ring-orange-400"
+            value={formData.instructions} onChange={e => setFormData({...formData, instructions: e.target.value})} required 
+          />
+          <button 
+            type="submit" 
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-bold shadow-orange-100 shadow-lg active:scale-[0.98] transition-all"
+          >
+            {loading ? 'در حال ارسال...' : '🚀 انتشار دستور پخت'}
+          </button>
+        </form>
+      </div>
+
+      <div className="grid gap-6">
+        {recipes.map(r => (
+          <div key={r.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xl font-bold text-orange-600">{r.title}</h3>
+              <span className="text-sm bg-gray-100 px-3 py-1 rounded-lg">⏱ {r.cooking_time} دقیقه</span>
             </div>
-            <p className="text-sm text-gray-500 mb-2">⏱ {recipe.cooking_time} دقیقه</p>
-            <p className="text-gray-700 text-sm mb-2"><strong>مواد لازم:</strong> {recipe.description}</p>
-            <p className="text-gray-600 text-sm italic"><strong>طرز تهیه:</strong> {recipe.instructions}</p>
+            <p className="text-gray-700 text-sm mb-2"><strong>مواد لازم:</strong> {r.description}</p>
+            <p className="text-gray-600 text-sm italic">{r.instructions}</p>
           </div>
         ))}
       </div>
