@@ -83,21 +83,35 @@ def add_ingredient(name: str, category: str = None, db: Session = Depends(get_db
     db.refresh(new_ing)
     return new_ing
 
-# --- RECIPES (دستور پخت) ---
+# --- RECIPES (مدیریت دستور پخت) ---
 
+# ۱. دریافت تمام دستورهای پخت (برای رفع خطای 405)
+@app.get("/recipes")
+def get_all_recipes(db: Session = Depends(get_db)):
+    return db.query(all_models.Recipe).all()
+
+# ۲. ایجاد دستور پخت جدید
 @app.post("/recipes")
 async def create_recipe(request: Request, db: Session = Depends(get_db)):
-    # دریافت داده‌ها از فرانت‌اِند
     data = await request.json()
+    
+    # استخراج داده‌ها و اطمینان از وجود مقادیر
     new_recipe = all_models.Recipe(
         title=data.get("title"),
-        description=data.get("description"),
-        category=data.get("category"),
+        description=data.get("description"),  # در اینجا همان لیست مواد اولیه است
+        instructions=data.get("instructions"),
+        category=data.get("category", "دسته‌بندی نشده"),
     )
+    
+    # اگر در مدل دیتابیس فیلد زمان پخت داری، این خط را فعال کن:
+    # new_recipe.cooking_time = data.get("cooking_time")
+
     db.add(new_recipe)
     db.commit()
     db.refresh(new_recipe)
-    return {"message": "Recipe published!", "id": new_recipe.id}
+    
+    # برگرداندن کل شیء برای اینکه فرانت‌اِند بلافاصله آن را به لیست اضافه کند
+    return new_recipe
 
 # --- SUPPORT (پیام به ادمین) ---
 
