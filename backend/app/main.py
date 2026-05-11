@@ -64,73 +64,67 @@ def register(user: user_schema.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="این ایمیل قبلاً ثبت شده است")
     return user_crud.create_user(db=db, user=user)
 
-# --- INGREDIENTS (جستجو و مدیریت مواد اولیه) ---
+# --- INGREDIENTS ---
 
 @app.get("/ingredients")
 def search_ingredients(q: str = Query(None), db: Session = Depends(get_db)):
-    # اگر q پر باشد، بر اساس نام جستجو می‌کند، در غیر این صورت همه را برمی‌گرداند
     query = db.query(all_models.Ingredient)
     if q:
         query = query.filter(all_models.Ingredient.name.contains(q))
     return query.all()
 
-@app.post("/admin/ingredients")
-def add_ingredient(name: str, category: str = None, db: Session = Depends(get_db)):
-    # مخصوص ادمین برای اضافه کردن مواد اولیه جدید
-    new_ing = all_models.Ingredient(name=name, category=category)
-    db.add(new_ing)
-    db.commit()
-    db.refresh(new_ing)
-    return new_ing
+# --- RECIPES (اصلاح شده) ---
 
-# --- RECIPES (مدیریت دستور پخت) ---
-
-# ۱. دریافت دستورهای پخت (فقط آن‌هایی که ادمین تایید کرده است)
 @app.get("/recipes")
 def get_approved_recipes(db: Session = Depends(get_db)):
-    # فقط دستورهایی را برمی‌گرداند که is_approved آن‌ها True باشد
     return db.query(all_models.Recipe).filter(all_models.Recipe.is_approved == True).all()
 
-# ۲. ایجاد دستور پخت جدید (توسط کاربر)
 @app.post("/recipes")
 async def create_recipe(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     
-    # ساخت آبجکت جدید - دقت کن که is_approved به صورت پیش‌فرض در دیتابیس False است
-    new_recipe = all_models.Recipe(
-        title=data.get("title"),
-        description=data.get("description"),  # لیست مواد اولیه
-        instructions=data.get("instructions"),
-        cooking_time=int(data.get("cooking_time", 0)) if data.get("cooking_time") else 0,
-        category=data.get("category", "دسته‌بندی نشده"),
-        is_approved=False,  # اجبار می‌کنیم که در ابتدا تایید نشده باشد
-        owner_id=1  # فعلاً دستی تا سیستم لاگین کامل ست شود
-    )
+    # 1. پیدا کردن آیدی کاربر (برای جلوگیری از خطای ForeignKey)
+    user = db.query(all_models.User).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="هیچ کاربری در سیستم نیست. ابتدا ثبت‌نام کنید.")
 
-    db.add(new_recipe)
-    db.commit()
-    db.refresh(new_recipe)
-    
-    # اینجا پیامی برمی‌گردانیم که کاربر بداند دستور ثبت شده ولی منتظر تایید است
-    return {"message": "دستور پخت با موفقیت ثبت شد و پس از تایید ادمین نمایش داده می‌شود.", "id": new_recipe.id}
+    # 2. ساخت دستور پخت
+    try:
+        new_recipe = all_models.Recipe(
+            title=data.get("title"),
+            description=data.get("description"),
+            instructions=data.get("instructions"),
+            cooking_time=int(data.get("cooking_time", 0)) if data.get("cooking_time") else 0,
+            category=data.get("category", "دسته‌بندی نشده"),
+            is_approved=False,
+            owner_id=user.id # استفاده از آیدی واقعی موجود در دیتابیس
+        )
 
-# ۳. مسیر مخصوص ادمین برای دیدن همه دستورهای منتظر تایید
+        db.add(new_recipe)
+        db.commit()
+        db.refresh(new_recipe)
+        return {"message": "ثبت شد و منتظر تایید ادمین است.", "id": new_recipe.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"خطا در دیتابیس: {str(e)}")
+
+# --- ADMIN ACTIONS ---
+
 @app.get("/admin/pending-recipes")
 def get_pending_recipes(db: Session = Depends(get_db)):
     return db.query(all_models.Recipe).filter(all_models.Recipe.is_approved == False).all()
 
-# ۴. تایید دستور پخت توسط ادمین
 @app.patch("/admin/approve-recipe/{recipe_id}")
 def approve_recipe(recipe_id: int, db: Session = Depends(get_db)):
     recipe = db.query(all_models.Recipe).filter(all_models.Recipe.id == recipe_id).first()
     if not recipe:
-        return {"error": "Recipe not found"}
+        raise HTTPException(status_code=404, detail="دستور پیدا نشد")
     
     recipe.is_approved = True
     db.commit()
-    return {"message": f"دستور پخت '{recipe.title}' تایید شد."}
+    return {"message": f"دستور '{recipe.title}' تایید شد."}
 
-# --- SUPPORT (پیام به ادمین) ---
+# --- SUPPORT ---
 
 @app.post("/support")
 async def send_support_message(request: Request, db: Session = Depends(get_db)):
