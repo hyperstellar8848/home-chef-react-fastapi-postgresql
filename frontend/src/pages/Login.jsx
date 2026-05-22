@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -8,6 +9,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth(); // ۲. بیرون کشیدن تابع لاگین سراسری
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -15,24 +17,25 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // استفاده از URLSearchParams برای اطمینان از فرمت x-www-form-urlencoded
-      const params = new URLSearchParams();
-      params.append('username', email); // FastAPI به دنبال کلمه username می‌گردد
-      params.append('password', password);
+      const formData = new FormData();
+      formData.append('username', email);
+      formData.append('password', password);
 
-      const response = await api.post('/token', params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
-
-      localStorage.setItem('token', response.data.access_token);
+      // ارسال درخواست به ایندپوینت FastAPI
+      const response = await api.post('/token', formData);
       
-      // تغییر مسیر به صفحه اصلی (یا هر مسیری که هدر فارسی دارد)
-      navigate('/home'); 
+      const token = response.data.access_token;
+      // ساخت یک شیء کاربر فرضی با ایمیلش برای اینکه ناوبار بتونه اسم یا ایمیل رو نشون بده
+      const userData = { email: email, name: email.split('@')[0] };
+
+      // ۳. این بخش کلیدی بود: به جای localStorage مستقیم، تابع کانتکست رو صدا می‌زنیم
+      // این تابع هم توکن رو ذخیره می‌کنه و هم وضعیت لودینگ روت‌ها رو آپدیت می‌کنه تا صفحه سفید نشه
+      login(token, userData);
+      
+      // هدایت امن به صفحه اصلی
+      navigate('/'); 
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.detail || "ورود ناموفق بود. ایمیل یا رمز عبور را چک کنید.");
+      setError(err.response?.data?.detail || "ورود ناموفق بود. دوباره تلاش کنید.");
     } finally {
       setLoading(false);
     }
@@ -53,22 +56,18 @@ const Login = () => {
           <div>
             <label className="block text-gray-600 mb-2 mr-1 text-sm">ایمیل کاربر</label>
             <input 
-              type="email" 
-              placeholder="example@mail.com" 
-              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 transition-all text-left" 
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
+              type="email" placeholder="example@mail.com" 
+              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-50/50 transition-all text-left"
+              onChange={(e) => setEmail(e.target.value)} required 
             />
           </div>
 
           <div>
             <label className="block text-gray-600 mb-2 mr-1 text-sm">رمز عبور</label>
             <input 
-              type="password" 
-              placeholder="••••••••" 
-              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 transition-all text-left" 
-              onChange={(e) => setPassword(e.target.value)} 
-              required 
+              type="password" placeholder="••••••••" 
+              className="w-full p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-50/50 transition-all text-left"
+              onChange={(e) => setPassword(e.target.value)} required 
             />
           </div>
 
@@ -76,7 +75,7 @@ const Login = () => {
             type="submit" 
             disabled={loading}
             className={`w-full py-4 rounded-2xl font-bold text-white text-lg transition-all shadow-lg 
-              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 active:scale-95'}`}
+              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 hover:shadow-orange-200 active:scale-95'}`}
           >
             {loading ? 'در حال ورود...' : 'ورود به حساب'}
           </button>
