@@ -124,6 +124,79 @@ def approve_recipe(recipe_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"دستور '{recipe.title}' تایید شد."}
 
+# --- ADMIN: USER MANAGEMENT (مدیریت کاربران) ---
+
+# ۱. دریافت لیست تمام کاربران
+@app.get("/admin/users")
+def get_all_users(db: Session = Depends(get_db)):
+    return db.query(all_models.User).all()
+
+# ۲. غیرفعال‌سازی یا حذف کاربر
+@app.delete("/admin/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(all_models.User).filter(all_models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="کاربر پیدا نشد")
+    
+    # هم می‌توانی کلاً حذف کنی، هم اگر ستون is_active داری غیرفعال کنی. اینجا کلاً حذف می‌کنیم:
+    db.delete(user)
+    db.commit()
+    return {"message": "کاربر با موفقیت حذف شد"}
+
+
+# --- ADMIN: CONTENT MANAGEMENT (مدیریت محتوای همه کاربران) ---
+
+# ۳. دریافت تمام دستورهای پخت (بدون فیلتر برای مدیریت ادمین)
+@app.get("/admin/all-recipes")
+def get_all_recipes_for_admin(db: Session = Depends(get_db)):
+    return db.query(all_models.Recipe).all()
+
+# ۴. حذف دستور پخت هر کاربری توسط ادمین
+@app.delete("/admin/recipes/{recipe_id}")
+def delete_recipe_by_admin(recipe_id: int, db: Session = Depends(get_db)):
+    recipe = db.query(all_models.Recipe).filter(all_models.Recipe.id == recipe_id).first()
+    if not recipe:
+        raise HTTPException(status_code=404, detail="دستور پخت پیدا نشد")
+    
+    db.delete(recipe)
+    db.commit()
+    return {"message": f"دستور پخت '{recipe.title}' توسط ادمین حذف شد"}
+
+# --- ADMIN: DASHBOARD SUMMARY (نمای خلاصه ادمین) ---
+
+@app.get("/admin/summary-stats")
+def get_admin_summary_stats(db: Session = Depends(get_db)):
+    # شمارش تعداد کل آیتم‌ها
+    total_users = db.query(all_models.User).count()
+    total_recipes = db.query(all_models.Recipe).count()
+    total_ingredients = db.query(all_models.Ingredient).count()
+    
+    # دریافت آخرین دستورهای پخت ایجاد شده (۵ مورد آخر)
+    latest_recipes = (
+        db.query(all_models.Recipe)
+        .order_by(all_models.Recipe.id.desc())
+        .limit(5)
+        .all()
+    )
+    
+    # تبدیل به فرمت مناسب فرانت‌اِند
+    latest_items = [
+        {
+            "id": r.id,
+            "title": r.title,
+            "category": r.category,
+            "status": "منتشر شده" if r.is_approved else "در انتظار تایید"
+        }
+        for r in latest_recipes
+    ]
+    
+    return {
+        "total_users": total_users,
+        "total_recipes": total_recipes,
+        "total_ingredients": total_ingredients,
+        "latest_items": latest_items
+    }
+
 # --- SUPPORT ---
 
 @app.post("/support")
