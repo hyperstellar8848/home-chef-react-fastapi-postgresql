@@ -1,75 +1,252 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const AdminPanel = () => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('summary'); // زبانه پیش‌فرض: summary
+  const [stats, setStats] = useState({ total_users: 0, total_recipes: 0, total_ingredients: 0, latest_items: [] });
   const [pendingRecipes, setPendingRecipes] = useState([]);
+  const [allRecipes, setAllRecipes] = useState([]);
+  const [users, setUsers] = useState([]);
   const [newIngredient, setNewIngredient] = useState({ name: '', category: '' });
-  const [message, setMessage] = useState('');
 
-  // دریافت لیست‌های منتظر تایید
+  // ۱. کنترل دسترسی امنیتی (Client-side Route Protection)
+  useEffect(() => {
+    const token = localStorage.getItem('token'); // یا هر نامی که برای توکن ذخیره کردی
+    if (!token) {
+      alert("شما به این صفحه دسترسی ندارید. ابتدا وارد شوید.");
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  // دریافت تمام داده‌های ادمین
   const fetchAdminData = async () => {
     try {
-      const res = await api.get('/admin/pending-recipes');
-      setPendingRecipes(res.data);
-    } catch (err) { console.error("Error fetching admin data", err); }
+      const resStats = await api.get('/admin/summary-stats');
+      setStats(resStats.data);
+
+      const resPending = await api.get('/admin/pending-recipes');
+      setPendingRecipes(resPending.data);
+
+      const resAllRecipes = await api.get('/admin/all-recipes');
+      setAllRecipes(resAllRecipes.data);
+
+      const resUsers = await api.get('/admin/users');
+      setUsers(resUsers.data);
+    } catch (err) {
+      console.error("خطا در بارگذاری اطلاعات پنل ادمین", err);
+    }
   };
 
-  useEffect(() => { fetchAdminData(); }, []);
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
 
-  // تایید دستور پخت
+  // عملیات تایید و حذف
   const approveRecipe = async (id) => {
     await api.patch(`/admin/approve-recipe/${id}`);
     fetchAdminData();
   };
 
-  // اضافه کردن ماده اولیه جدید
+  const deleteRecipe = async (id) => {
+    if (window.confirm("آیا از حذف این دستور پخت مطمئن هستید؟")) {
+      await api.delete(`/admin/recipes/${id}`);
+      fetchAdminData();
+    }
+  };
+
+  const deleteUser = async (id) => {
+    if (window.confirm("آیا از حذف/مسدودسازی این کاربر مطمئن هستید؟")) {
+      await api.delete(`/admin/users/${id}`);
+      fetchAdminData();
+    }
+  };
+
   const addIngredient = async (e) => {
     e.preventDefault();
-    await api.post('/admin/ingredients', newIngredient);
-    alert("ماده اولیه جدید اضافه شد!");
+    await api.post('/admin/ingredients', null, { params: newIngredient });
+    alert("ماده اولیه ذخیره شد!");
     setNewIngredient({ name: '', category: '' });
+    fetchAdminData();
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6" dir="rtl">
-      <h1 className="text-3xl font-bold mb-8">🛠 پنل مدیریت</h1>
+    <div className="max-w-6xl mx-auto p-6" dir="rtl">
+      {/* هدر پنل و ناوبری */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b pb-4 gap-4">
+        <h1 className="text-3xl font-bold text-gray-800">🛠 میز کار مدیریت (Admin)</h1>
+        
+        <div className="flex flex-wrap gap-2">
+          <button 
+            onClick={() => setActiveTab('summary')} 
+            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'summary' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+          >📊 نمای خلاصه</button>
+          <button 
+            onClick={() => setActiveTab('recipes')} 
+            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'recipes' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+          >📝 تایید و مدیریت محتوا ({pendingRecipes.length})</button>
+          <button 
+            onClick={() => setActiveTab('users')} 
+            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'users' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+          >👥 کاربران ({users.length})</button>
+          <button 
+            onClick={() => setActiveTab('ingredients')} 
+            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'ingredients' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+          >🍎 مواد اولیه</button>
+        </div>
+      </div>
 
-      {/* ۱. بخش تایید دستور پخت */}
-      <section className="bg-white p-6 rounded-2xl shadow-sm mb-8">
-        <h2 className="text-xl font-bold mb-4">⏳ دستورهای منتظر تایید ({pendingRecipes.length})</h2>
-        {pendingRecipes.map(r => (
-          <div key={r.id} className="border-b py-4 flex justify-between items-center">
-            <div>
-              <h3 className="font-bold text-orange-600">{r.title}</h3>
-              <p className="text-sm text-gray-500">{r.description}</p>
+      {/* زبانه اول: نمای خلاصه داشبورد */}
+      {activeTab === 'summary' && (
+        <div className="space-y-8">
+          {/* باکس‌های آماری کارت ماتریکس */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-sm">
+              <p className="text-blue-100 font-medium">👥 تعداد کل کاربران</p>
+              <h3 className="text-4xl font-black mt-2">{stats.total_users} <span className="text-sm font-normal">نفر</span></h3>
             </div>
-            <button 
-              onClick={() => approveRecipe(r.id)}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-            >✅ تایید</button>
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-2xl shadow-sm">
+              <p className="text-orange-100 font-medium">🍔 تعداد کل دستورهای پخت (آیتم‌های اصلی)</p>
+              <h3 className="text-4xl font-black mt-2">{stats.total_recipes} <span className="text-sm font-normal">دستور</span></h3>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-6 rounded-2xl shadow-sm">
+              <p className="text-emerald-100 font-medium">🌾 کل مواد اولیه بانک دیتابیس</p>
+              <h3 className="text-4xl font-black mt-2">{stats.total_ingredients} <span className="text-sm font-normal">قلم</span></h3>
+            </div>
           </div>
-        ))}
-      </section>
 
-      {/* ۲. بخش افزودن ماده اولیه */}
-      <section className="bg-white p-6 rounded-2xl shadow-sm">
-        <h2 className="text-xl font-bold mb-4">🍎 افزودن ماده اولیه جدید</h2>
-        <form onSubmit={addIngredient} className="flex gap-4">
-          <input 
-            placeholder="نام ماده (مثلاً قارچ)" 
-            className="border p-2 rounded-lg"
-            value={newIngredient.name}
-            onChange={e => setNewIngredient({...newIngredient, name: e.target.value})}
-          />
-          <input 
-            placeholder="دسته‌بندی (مثلاً صیفی‌جات)" 
-            className="border p-2 rounded-lg"
-            value={newIngredient.category}
-            onChange={e => setNewIngredient({...newIngredient, category: e.target.value})}
-          />
-          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-lg">ذخیره</button>
-        </form>
-      </section>
+          {/* جدول آخرین آیتم‌های ایجاد شده */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">⏱ آخرین آیتم‌های ایجاد شده در سیستم</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="border-b bg-gray-50 text-gray-600 text-sm">
+                    <th className="p-3">شناسه</th>
+                    <th className="p-3">عنوان آیتم</th>
+                    <th className="p-3">دسته‌بندی</th>
+                    <th className="p-3">وضعیت سیستم</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.latest_items.length === 0 ? (
+                    <tr><td colSpan="4" className="text-center p-4 text-gray-400">هنوز دیتایی ثبت نشده است.</td></tr>
+                  ) : (
+                    stats.latest_items.map(item => (
+                      <tr key={item.id} className="border-b hover:bg-gray-50 transition text-sm">
+                        <td className="p-3 text-gray-400 font-mono">#{item.id}</td>
+                        <td className="p-3 font-semibold text-gray-700">{item.title}</td>
+                        <td className="p-3 text-gray-500">{item.category}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${item.status === 'منتشر شده' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* بقیه زبانه‌ها (تایید محتوا، کاربران، مواد اولیه) */}
+      {activeTab === 'recipes' && (
+        <div>
+          {/* دستورهای منتظر تایید */}
+          <section className="bg-amber-50 border border-amber-200 p-6 rounded-2xl shadow-sm mb-8">
+            <h2 className="text-xl font-bold text-amber-800 mb-4">⏳ دستورهای منتظر بررسی ({pendingRecipes.length})</h2>
+            {pendingRecipes.length === 0 ? <p className="text-gray-500 text-sm">هیچ دستور پختی در صف بررسی نیست.</p> : 
+              pendingRecipes.map(r => (
+                <div key={r.id} className="bg-white p-4 rounded-xl mb-3 flex justify-between items-center shadow-xs border">
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-lg">{r.title}</h3>
+                    <p className="text-sm text-gray-600 mt-1"><b>مواد اولیه:</b> {r.description}</p>
+                    <p className="text-sm text-gray-500 mt-1"><b>طرز تهیه:</b> {r.instructions}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => approveRecipe(r.id)} className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 transition">✅ تایید</button>
+                    <button onClick={() => deleteRecipe(r.id)} className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition">حذف</button>
+                  </div>
+                </div>
+              ))
+            }
+          </section>
+
+          {/* مدیریت کل محتوا */}
+          <section className="bg-white p-6 rounded-2xl shadow-sm border">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">📚 لیست تمام دستورهای پخت سیستم</h2>
+            <table className="w-full text-right border-collapse text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50 text-gray-600">
+                  <th className="p-3">عنوان دستور</th>
+                  <th className="p-3">دسته‌بندی</th>
+                  <th className="p-3">عملیات ادمین</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allRecipes.map(r => (
+                  <tr key={r.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3 font-medium">{r.title}</td>
+                    <td className="p-3 text-gray-500">{r.category}</td>
+                    <td className="p-3"><button onClick={() => deleteRecipe(r.id)} className="text-red-500 hover:text-red-700 font-medium">حذف محتوا</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      )}
+
+      {activeTab === 'users' && (
+        <section className="bg-white p-6 rounded-2xl shadow-sm border">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">👥 مدیریت کاربران ثبت‌نام شده</h2>
+          <table className="w-full text-right border-collapse text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50 text-gray-600">
+                <th className="p-3">شناسه</th>
+                <th className="p-3">ایمیل</th>
+                <th className="p-3">اقدامات ادمین</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="border-b hover:bg-gray-50">
+                  <td className="p-3 font-mono text-gray-400">#{u.id}</td>
+                  <td className="p-3 font-medium">{u.email}</td>
+                  <td className="p-3">
+                    <button onClick={() => deleteUser(u.id)} className="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-lg text-xs font-medium">🚫 حذف کاربر</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {activeTab === 'ingredients' && (
+        <section className="bg-white p-6 rounded-2xl shadow-sm border">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">🍎 افزودن ماده اولیه جدید</h2>
+          <form onSubmit={addIngredient} className="flex gap-4 max-w-xl">
+            <input 
+              placeholder="نام ماده (مثلاً کلم بروکلی)" 
+              className="border p-2 rounded-lg flex-1 text-sm" required
+              value={newIngredient.name}
+              onChange={e => setNewIngredient({...newIngredient, name: e.target.value})}
+            />
+            <input 
+              placeholder="دسته‌بندی (مثلاً صیفی‌جات)" 
+              className="border p-2 rounded-lg flex-1 text-sm"
+              value={newIngredient.category}
+              onChange={e => setNewIngredient({...newIngredient, category: e.target.value})}
+            />
+            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-700 transition">ذخیره</button>
+          </form>
+        </section>
+      )}
     </div>
   );
 };
