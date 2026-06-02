@@ -64,8 +64,8 @@ The social hub of ChefHome.
 ---
 
 ## 2. 🔮 چی تو یخچال داری؟ (Search by Ingredients)
-
-Forgot what to cook? Just enter the ingredients you have.
+<img src="searchbying.png" width="800" alt="search by ingredients">
+Don't know what to cook? Just enter the ingredients you have.
 
 ### How It Works
 
