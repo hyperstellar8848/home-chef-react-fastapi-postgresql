@@ -8,6 +8,7 @@ import SearchByIngredients from './pages/SearchByIngredients';
 import RecipeDetail from './pages/RecipeDetail';
 import CreateRecipe from './pages/CreateRecipe';
 import AdminPanel from './pages/AdminPanel';
+import About from './pages/About';
 
 function App() {
   return (
@@ -19,9 +20,11 @@ function App() {
           <Route path="/search-ingredients" element={<SearchByIngredients />} />
           <Route path="/recipe/:id" element={<RecipeDetail />} />
           <Route path="/create-recipe" element={<CreateRecipe />} />
+          <Route path="/about" element={<About />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          
         </Routes>
       </Router>
     </AuthProvider>
