@@ -9,11 +9,11 @@ const Navbar = () => {
   return (
     <nav className="bg-white shadow-sm border-b border-gray-100 mb-6" dir="rtl">
       <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-        {/* لوگو و نام برنامه */}
-        <div className="flex items-center gap-6">
-          <Link to="/" className="text-2xl font-black text-orange-500 flex items-center gap-1">
-            <span>👨‍🍳</span> HomeChef
-          </Link>
+      {/* لوگو و نام برنامه - هدایت به صفحه معرفی */}
+      <div className="flex items-center gap-6">
+        <Link to="/about" className="text-2xl font-black text-orange-500 flex items-center gap-1">
+          <span>👨‍🍳</span> HomeChef
+        </Link>
           
           {/* لینک‌های صفحات چهارگانه جدید */}
           <div className="hidden md:flex items-center gap-4 text-sm font-medium text-gray-600">
