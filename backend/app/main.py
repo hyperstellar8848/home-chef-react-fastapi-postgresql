@@ -162,6 +162,20 @@ def delete_recipe_by_admin(recipe_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"دستور پخت '{recipe.title}' توسط ادمین حذف شد"}
 
+# --- ADMIN: ADD INGREDIENT (افزودن ماده اولیه) ---
+@app.post("/admin/ingredients")
+def add_ingredient_by_admin(name: str, category: str = "سایر", db: Session = Depends(get_db)):
+    # بررسی تکراری نبودن
+    exists = db.query(all_models.Ingredient).filter(all_models.Ingredient.name == name).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="این ماده اولیه از قبل در سیستم موجود است")
+        
+    new_ing = all_models.Ingredient(name=name, category=category)
+    db.add(new_ing)
+    db.commit()
+    db.refresh(new_ing)
+    return {"message": f"ماده اولیه '{name}' با موفقیت به بانک اطلاعاتی اضافه شد", "id": new_ing.id}
+
 # --- ADMIN: DASHBOARD SUMMARY (نمای خلاصه ادمین) ---
 
 @app.get("/admin/summary-stats")
