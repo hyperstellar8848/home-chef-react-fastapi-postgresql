@@ -9,7 +9,8 @@ const AdminPanel = () => {
   const [pendingRecipes, setPendingRecipes] = useState([]);
   const [allRecipes, setAllRecipes] = useState([]);
   const [users, setUsers] = useState([]);
-  const [newIngredient, setNewIngredient] = useState({ name: '', category: '' });
+  // اضافه کردن مقدار پیش‌فرض "سایر" برای دسته‌بندی جهت جلوگیری از ارسال فیلد خالی
+  const [newIngredient, setNewIngredient] = useState({ name: '', category: 'سایر' });
 
   // ۱. کنترل دسترسی امنیتی (Client-side Route Protection)
   useEffect(() => {
@@ -63,12 +64,29 @@ const AdminPanel = () => {
     }
   };
 
+  // 🛠️ بخش فیکس شده برای ارتباط صحیح با متد POST دیتابیس ادمین
   const addIngredient = async (e) => {
     e.preventDefault();
-    await api.post('/admin/ingredients', null, { params: newIngredient });
-    alert("ماده اولیه ذخیره شد!");
-    setNewIngredient({ name: '', category: '' });
-    fetchAdminData();
+    if (!newIngredient.name.trim()) return;
+
+    try {
+      // ارسال پارامترها به صورت params برای هماهنگی کامل با FastAPI
+      const response = await api.post('/admin/ingredients', null, { 
+        params: {
+          name: newIngredient.name.trim(),
+          category: newIngredient.category.trim()
+        } 
+      });
+      
+      // نمایش پیام موفقیت دریافتی از سمت سرور
+      alert(response.data.message || `✅ ماده اولیه "${newIngredient.name}" با موفقیت ذخیره شد!`);
+      
+      // ریست کردن فرم
+      setNewIngredient({ name: '', category: 'سایر' });
+      fetchAdminData(); // به‌روزرسانی آنی آمارها در تب داشبورد
+    } catch (err) {
+      alert(err.response?.data?.detail || "خطا در ثبت ماده اولیه جدید");
+    }
   };
 
   return (
@@ -233,17 +251,17 @@ const AdminPanel = () => {
           <form onSubmit={addIngredient} className="flex gap-4 max-w-xl">
             <input 
               placeholder="نام ماده (مثلاً کلم بروکلی)" 
-              className="border p-2 rounded-lg flex-1 text-sm" required
+              className="border p-2 rounded-lg flex-1 text-sm outline-none focus:border-orange-400" required
               value={newIngredient.name}
               onChange={e => setNewIngredient({...newIngredient, name: e.target.value})}
             />
             <input 
               placeholder="دسته‌بندی (مثلاً صیفی‌جات)" 
-              className="border p-2 rounded-lg flex-1 text-sm"
+              className="border p-2 rounded-lg flex-1 text-sm outline-none focus:border-orange-400"
               value={newIngredient.category}
               onChange={e => setNewIngredient({...newIngredient, category: e.target.value})}
             />
-            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-700 transition">ذخیره</button>
+            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition">ذخیره</button>
           </form>
         </section>
       )}
