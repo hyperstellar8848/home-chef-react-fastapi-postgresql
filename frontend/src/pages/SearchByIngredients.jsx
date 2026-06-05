@@ -8,7 +8,8 @@ const SearchByIngredients = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [selectedIngredients, setSelectedIngredients] = useState([]);
   const [matchedRecipes, setMatchedRecipes] = useState([]);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false); // 🔹 UI State: برای ردیابی اینکه آیا کاربر دکمه سرچ را زده یا نه
+  const [searching, setSearching] = useState(false); // 🔹 UI State: لودینگ سرچ یخچال
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
@@ -16,7 +17,7 @@ const SearchByIngredients = () => {
         try {
           const data = await recipeService.searchIngredients(searchTerm);
           setSuggestions(data);
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("خطا در لود پیشنهادات", err); }
       } else {
         setSuggestions([]);
       }
@@ -24,17 +25,16 @@ const SearchByIngredients = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
 
-  // 🚀 تابع نهایی فیلتر و پیدا کردن غذاها بر اساس مواد انتخاب شده
   const handleFindRecipes = async () => {
+    // 🔹 اعتبارسنجی کلاینت: اگر لیستی انتخاب نشده هشدار بده
     if (selectedIngredients.length === 0) {
       alert("لطفاً ابتدا حداقل یک ماده اولیه از یخچال انتخاب کنید.");
       return;
     }
     
+    setSearching(true);
     try {
       const allRecipes = await recipeService.getAllRecipes();
-      
-      // فیلتر کردن غذاهایی که حداقل یکی از مواد انتخابی کاربر را در بخش توضیحات/مواد خود دارند
       const filtered = allRecipes.filter(recipe => {
         return selectedIngredients.some(ing => 
           recipe.description.toLowerCase().includes(ing.name.toLowerCase())
@@ -44,15 +44,9 @@ const SearchByIngredients = () => {
       setMatchedRecipes(filtered);
       setHasSearched(true);
     } catch (err) {
-      console.error("خطا در فیلتر غذاها", err);
-    }
-  };
-
-  const handleSupport = async () => {
-    const content = prompt("نام ماده غذایی که پیدا نکردید را بنویسید:");
-    if (content) {
-      await recipeService.sendSupportMessage(content);
-      alert("درخواست شما برای ادمین ارسال شد.");
+      alert("خطا در ارتباط با دیتابیس پخت و پز. مجدداً تلاش کنید.");
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -89,39 +83,35 @@ const SearchByIngredients = () => {
           )}
         </div>
 
-        {searchTerm && suggestions.length === 0 && (
-          <p className="text-sm text-gray-500 mb-4">
-            ماده مورد نظرت رو پیدا نکردی؟ <button onClick={handleSupport} className="text-orange-600 font-bold underline">درخواست از ادمین</button>
-          </p>
-        )}
-
-        {/* تگ‌های انتخاب شده */}
         <div className="flex flex-wrap gap-2 mb-6">
           {selectedIngredients.map(ing => (
             <span key={ing.id} className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm flex items-center">
               {ing.name}
               <button onClick={() => {
                 setSelectedIngredients(selectedIngredients.filter(i => i.id !== ing.id));
-                setHasSearched(false); // ریست وضعیت جستجو در صورت تغییر مواد
+                setHasSearched(false);
               }} className="mr-2 font-bold">×</button>
             </span>
           ))}
         </div>
 
-        {/* ✅ دکمه محرک برای شروع عملیات فیلتر بر اساس یخچال */}
         <button
           onClick={handleFindRecipes}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-emerald-100 transition-all mb-8"
+          disabled={searching}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-all mb-8"
         >
-          🚀 جستجوی غذاها بر اساس این مواد
+          {searching ? '🔍 در حال جستجوی دیتابیس...' : '🚀 جستجوی غذاها بر اساس این مواد'}
         </button>
 
-        {/* نمایش نتایج جستجو */}
+        {/* 🔹 UI State: کنترل دقیق بخش Empty State و نتایج یافته شده */}
         {hasSearched && (
           <div className="space-y-4">
             <h3 className="text-lg font-bold text-gray-700 border-r-4 border-emerald-500 pr-2">🍲 غذاهای پیشنهادی با مواد شما:</h3>
             {matchedRecipes.length === 0 ? (
-              <p className="text-sm text-gray-500 bg-gray-100 p-4 rounded-xl text-center">متأسفانه غذایی پیدا نشد که شامل این ترکیب باشد. مواد دیگری را امتحان کنید.</p>
+              // 🔹 Empty State UI
+              <p className="text-sm text-gray-500 bg-gray-100 p-4 rounded-xl text-center">
+                🚫 متأسفانه غذایی پیدا نشد که شامل این ترکیب مواد باشد. مواد اولیه دیگری را به یخچال خود اضافه کنید.
+              </p>
             ) : (
               matchedRecipes.map(recipe => (
                 <RecipeCard key={recipe.id} recipe={recipe} />
